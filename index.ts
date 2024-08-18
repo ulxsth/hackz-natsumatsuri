@@ -6,7 +6,7 @@ const TOKEN: string = process.env.DISCORD_TOKEN!;
 const CLIENT_ID: string = process.env.DISCORD_CLIENT_ID!;
 const RANKING_CHANNEL_ID: string = process.env.DISCORD_RANKING_CHANNEL_ID!;
 
-interface Score {
+export interface Score {
   name: string;
   score: number;
 }
@@ -62,7 +62,14 @@ client.once("ready", async () => {
     const channel = client.channels.cache.get(RANKING_CHANNEL_ID);
     if (channel) {
       const textChannel = channel as TextChannel;
-      rankingMsg = await textChannel.send("【ランキング】");
+      rankingMsg = await textChannel.send(
+        `
+### ランキング
+1.
+2.
+3.
+       `
+      );
     } else {
       console.log(
         `[WARNING] The channel with the ID ${RANKING_CHANNEL_ID} was not found.`
