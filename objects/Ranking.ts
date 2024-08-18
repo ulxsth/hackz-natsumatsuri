@@ -7,8 +7,14 @@ export type Score = {
 export class Ranking {
   private ranking: Score[] = [];
 
-  add(score: Score): void {
-    this.ranking.push(score);
+  upsert(score: Score): void {
+    const index = this.ranking.findIndex((s) => s.name === score.name);
+    if (index === -1) {
+      this.ranking.push(score);
+    } else {
+      this.ranking[index] = score;
+    }
+
     this.ranking = this.ranking.sort((a, b) => b.score - a.score);
   }
 
