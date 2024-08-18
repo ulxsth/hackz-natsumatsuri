@@ -1,20 +1,21 @@
-import { Client, REST, Routes, GatewayIntentBits, Events, WebhookClient, Message, GuildChannel, TextChannel } from "discord.js";
+import { Client, REST, Routes, GatewayIntentBits, Events, WebhookClient, Message, GuildChannel, TextChannel, Collection, CommandInteraction, SlashCommandBuilder } from "discord.js";
 import fs from "fs";
 import path from "path";
+import { Ranking } from "./objects/Ranking";
 
 const TOKEN: string = process.env.DISCORD_TOKEN!;
 const CLIENT_ID: string = process.env.DISCORD_CLIENT_ID!;
 const RANKING_CHANNEL_ID: string = process.env.DISCORD_RANKING_CHANNEL_ID!;
 
-export interface Score {
-  name: string;
-  score: number;
-}
+type Command = {
+  data: SlashCommandBuilder;
+  execute: (interaction: CommandInteraction) => void;
+};
 
-export let ranking: Score[] = [];
+export let ranking = new Ranking();
 export let rankingMsg: Message | null = null;
 
-const commands = [];
+const commands: Command[] = [];
 const foldersPath = path.join(__dirname, "commands");
 const commandFiles = fs
   .readdirSync(foldersPath)
@@ -25,7 +26,7 @@ for (const file of commandFiles) {
   const command = require(filePath).default;
 
   if (command.data && command.execute) {
-    commands.push(command.data.toJSON());
+    commands.push(command);
   } else {
     console.log(
       `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
@@ -40,7 +41,7 @@ const rest = new REST().setToken(TOKEN);
       `Started refreshing ${commands.length} application (/) commands.`
     );
     const data = (await rest.put(Routes.applicationCommands(CLIENT_ID), {
-      body: commands,
+      body: commands.map((cmd) => cmd.data.toJSON()),
     })) as any[];
 
     console.log(
@@ -62,14 +63,7 @@ client.once("ready", async () => {
     const channel = client.channels.cache.get(RANKING_CHANNEL_ID);
     if (channel) {
       const textChannel = channel as TextChannel;
-      rankingMsg = await textChannel.send(
-        `
-### ランキング
-1.
-2.
-3.
-       `
-      );
+      rankingMsg = await textChannel.send(ranking.toString());
     } else {
       console.log(
         `[WARNING] The channel with the ID ${RANKING_CHANNEL_ID} was not found.`
@@ -82,7 +76,18 @@ client.once("ready", async () => {
 
 client.on(Events.InteractionCreate, interaction => {
   if (!interaction.isCommand()) return;
-  interaction.reply("yo")
+  const command = commands.find(cmd => cmd.data.name === interaction.commandName);
+  if (!command) return;
+
+  try {
+    command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    interaction.reply({
+      content: "There was an error while executing this command!",
+      ephemeral: true,
+    });
+  }
 })
 
 client.login(TOKEN);
